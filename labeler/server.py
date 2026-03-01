@@ -122,10 +122,10 @@ def run_generate_thread(job_id: str, user_prompt: str, num: int):
         if not candidates:
             raise RuntimeError("Generation finished but no output images were found in trainmodel/output/")
 
-        # Run pixel reducer on each image: downscale to true 32×32, limit to 12 colors
+        # Run pixel reducer on each image: auto-detect pixel size, limit to 12 colors
         for src_path, idx in candidates:
             reduce = subprocess.run(
-                [PYTHON, PIXEL_REDUCE, src_path, src_path, '--width', '32', '--colors', '12'],
+                [PYTHON, PIXEL_REDUCE, src_path, src_path, '--colors', '12'],
                 capture_output=True, text=True, timeout=60,
             )
             if reduce.returncode == 0:
