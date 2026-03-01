@@ -2,6 +2,7 @@
 """Pixel art labeler + generator server."""
 
 import base64
+import io
 import json
 import os
 import shutil
@@ -11,6 +12,7 @@ import threading
 import time
 import urllib.parse
 import uuid
+import zipfile
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -27,6 +29,8 @@ PIXEL_REDUCE     = os.path.join(BASE_DIR, '..', 'pixel_reducer', 'pixelreduce.py
 REDUCER_HTML     = os.path.join(BASE_DIR, 'reducer.html')
 TRAIN_HTML       = os.path.join(BASE_DIR, 'train.html')
 REDUCER_TMP      = os.path.join(BASE_DIR, '..', 'tmp_reduce')
+MODEL_DIR        = os.path.join(BASE_DIR, '..', 'model1')
+TRAINMODEL_PY    = os.path.join(BASE_DIR, '..', 'trainmodel', 'trainmodel.py')
 
 # Use the venv Python (has cv2/numpy/PIL) if available, else fall back to this process
 _venv_python_local = os.path.join(BASE_DIR, 'venv', 'bin', 'python')
@@ -194,6 +198,47 @@ class Handler(BaseHTTPRequestHandler):
         except BrokenPipeError:
             pass
 
+    def send_download(self, fpath, download_name=None):
+        """Serve a single file as a browser download."""
+        if not os.path.exists(fpath):
+            self.send_json({'error': 'File not found'}, status=404)
+            return
+        name = download_name or os.path.basename(fpath)
+        try:
+            with open(fpath, 'rb') as f:
+                body = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/octet-stream')
+            self.send_header('Content-Disposition', f'attachment; filename="{name}"')
+            self.send_header('Content-Length', len(body))
+            self.end_headers()
+            self.wfile.write(body)
+        except BrokenPipeError:
+            pass
+
+    def send_zip_download(self, folder, zip_name):
+        """Zip an entire folder in-memory and serve it as a download."""
+        if not os.path.isdir(folder):
+            self.send_json({'error': f'Directory not found: {folder}'}, status=404)
+            return
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for root, _, files in os.walk(folder):
+                for fname in files:
+                    full = os.path.join(root, fname)
+                    arcname = os.path.relpath(full, os.path.dirname(folder))
+                    zf.write(full, arcname)
+        body = buf.getvalue()
+        try:
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/zip')
+            self.send_header('Content-Disposition', f'attachment; filename="{zip_name}"')
+            self.send_header('Content-Length', len(body))
+            self.end_headers()
+            self.wfile.write(body)
+        except BrokenPipeError:
+            pass
+
     def send_image(self, fpath):
         if not os.path.exists(fpath):
             self.send_response(404)
@@ -261,6 +306,23 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.send_json(job)
                 log_req("GET", path, 200, job["status"])
+
+        elif path == '/api/export/training-data':
+            count = len(list_images())
+            log_req("GET", path, 200, f"zipping {count} images")
+            self.send_zip_download(TRAINING_DATA, 'training_data.zip')
+
+        elif path == '/api/export/model':
+            log_req("GET", path, 200, "zipping model1/")
+            self.send_zip_download(MODEL_DIR, 'model1.zip')
+
+        elif path == '/api/export/trainmodel':
+            log_req("GET", path, 200)
+            self.send_download(TRAINMODEL_PY, 'trainmodel.py')
+
+        elif path == '/api/export/descriptions':
+            log_req("GET", path, 200)
+            self.send_download(DESCRIPTIONS_FILE, 'descriptions.json')
 
         elif path.startswith('/images/'):
             fname = urllib.parse.unquote(path[len('/images/'):])
