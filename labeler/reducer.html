@@ -501,6 +501,14 @@
       origDims.textContent = `${probe.naturalWidth} × ${probe.naturalHeight}`;
       dropZone.classList.add('has-image');
       btnClear.disabled = false;
+
+      // Update slider range to match image width
+      widthSlider.max = probe.naturalWidth;
+      if (parseInt(widthSlider.value) > probe.naturalWidth) {
+        widthSlider.value = probe.naturalWidth;
+        widthVal.textContent = probe.naturalWidth + ' px wide';
+      }
+
       hideError();
       scheduleProcess();
     };
