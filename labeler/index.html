@@ -12,6 +12,7 @@
       background: #111;
       color: #eee;
       display: flex;
+      flex-direction: column;
       height: 100vh;
       overflow: hidden;
     }
@@ -412,7 +413,45 @@
       transform: translateY(0);
     }
 
-    /* MOBILE TOGGLE BAR */
+    /* ── NAV ── */
+    #nav {
+      display: flex;
+      align-items: center;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+      padding: 0 16px;
+      height: 46px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      padding: 0 14px;
+      font-size: 13px;
+      color: #888;
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s;
+    }
+
+    .nav-link:hover { color: #ccc; }
+
+    .nav-link.active {
+      color: #fff;
+      border-bottom-color: #4ade80;
+    }
+
+    #nav-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      margin-left: auto;
+      padding-right: 4px;
+    }
+
+      /* MOBILE TOGGLE BAR */
     #mobile-bar {
       display: none;
       padding: 10px 14px;
@@ -494,6 +533,13 @@
 </head>
 <body>
 
+<nav id="nav">
+  <a class="nav-link active" href="/">Labeler</a>
+  <a class="nav-link" href="/generator">Generator</a>
+  <span id="nav-title">Pixel Art AI</span>
+</nav>
+
+<div style="display:flex;flex:1;overflow:hidden;height:calc(100vh - 46px)">
 <div id="sidebar">
   <div id="sidebar-header">
     <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -555,6 +601,8 @@
     </div>
   </div>
 </div>
+
+</div><!-- end flex wrapper -->
 
 <div id="toast">Saved!</div>
 
