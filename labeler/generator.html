@@ -387,14 +387,50 @@
     });
   });
 
-  // ── Generate ─────────────────────────────────────────────────────────────
+  // ── Generate (non-blocking: POST → job_id, then poll) ───────────────────
+  let pollInterval = null;
+
+  function stopPolling() {
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  }
+
+  async function pollJob(job_id, startTime) {
+    try {
+      const res = await fetch(`/api/generate/status/${job_id}`);
+      const job = await res.json();
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+
+      if (job.status === 'pending' || job.status === 'running') {
+        loadingText.textContent = `Generating… ${elapsed}s elapsed`;
+        return; // keep polling
+      }
+
+      stopPolling();
+      btnGenerate.disabled = false;
+      loading.classList.remove('visible');
+
+      if (job.status === 'done') {
+        showToast(`Generated ${job.images.length} image${job.images.length !== 1 ? 's' : ''}!`);
+        promptInput.value = '';
+        await loadGallery(job.images);
+      } else {
+        showToast('Error: ' + (job.error || 'Unknown error'), true);
+      }
+    } catch (err) {
+      stopPolling();
+      btnGenerate.disabled = false;
+      loading.classList.remove('visible');
+      showToast('Error: ' + err.message, true);
+    }
+  }
+
   async function generate() {
     const prompt = promptInput.value.trim();
     if (!prompt) { promptInput.focus(); return; }
 
     btnGenerate.disabled = true;
     loading.classList.add('visible');
-    loadingText.textContent = `Generating ${selectedNum} image${selectedNum > 1 ? 's' : ''}… this takes 1–3 minutes on Apple Silicon`;
+    loadingText.textContent = `Starting generation…`;
 
     try {
       const res = await fetch('/api/generate', {
@@ -402,20 +438,17 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, num: selectedNum }),
       });
-
       const data = await res.json();
-
       if (!data.ok) throw new Error(data.error || 'Unknown error');
 
-      showToast(`Generated ${data.images.length} image${data.images.length > 1 ? 's' : ''}!`);
-      promptInput.value = '';
-      await loadGallery(data.images);   // reload and highlight new ones
+      const startTime = Date.now();
+      loadingText.textContent = `Generating… 0s elapsed`;
+      pollInterval = setInterval(() => pollJob(data.job_id, startTime), 2000);
 
     } catch (err) {
-      showToast('Error: ' + err.message, true);
-    } finally {
       btnGenerate.disabled = false;
       loading.classList.remove('visible');
+      showToast('Error: ' + err.message, true);
     }
   }
 
