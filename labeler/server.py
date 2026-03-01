@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Pixel art labeler + generator server."""
 
+import base64
 import json
 import os
 import shutil
@@ -23,6 +24,8 @@ GENERATED_META   = os.path.join(GENERATED_DIR, 'metadata.json')
 GENERATE_SH      = os.path.join(BASE_DIR, '..', 'generateImage.sh')
 OUTPUT_DIR       = os.path.join(BASE_DIR, '..', 'trainmodel', 'output')
 PIXEL_REDUCE     = os.path.join(BASE_DIR, '..', 'pixel_reducer', 'pixelreduce.py')
+REDUCER_HTML     = os.path.join(BASE_DIR, 'reducer.html')
+REDUCER_TMP      = os.path.join(BASE_DIR, '..', 'tmp_reduce')
 
 # Use the venv Python (has cv2/numpy/PIL) if available, else fall back to this process
 _venv_python = os.path.join(BASE_DIR, '..', 'venv', 'bin', 'python')
@@ -220,6 +223,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_html(GENERATOR_HTML)
             log_req("GET", path, 200)
 
+        elif path == '/reducer':
+            self.send_html(REDUCER_HTML)
+            log_req("GET", path, 200)
+
         elif path == '/api/images':
             data = list_images()
             self.send_json(data)
@@ -314,6 +321,54 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({'ok': False, 'error': str(e)}, status=500)
                 log_req("POST", path, 500, str(e))
 
+        elif path == '/api/reduce':
+            try:
+                data = json.loads(body)
+                img_b64 = data.get('image', '')
+                width   = data.get('width')   # int or None (auto-detect)
+                colors  = data.get('colors')  # int or None (no quantization)
+
+                # Strip data URI prefix if present
+                if ',' in img_b64:
+                    img_b64 = img_b64.split(',', 1)[1]
+                img_bytes = base64.b64decode(img_b64)
+
+                os.makedirs(REDUCER_TMP, exist_ok=True)
+                tmp_id   = uuid.uuid4().hex
+                in_path  = os.path.join(REDUCER_TMP, f'{tmp_id}_in.png')
+                out_path = os.path.join(REDUCER_TMP, f'{tmp_id}_out.png')
+
+                with open(in_path, 'wb') as f:
+                    f.write(img_bytes)
+
+                try:
+                    cmd = [PYTHON, PIXEL_REDUCE, in_path, out_path]
+                    if width  is not None: cmd += ['--width',  str(int(width))]
+                    if colors is not None: cmd += ['--colors', str(int(colors))]
+
+                    r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                    log_req("POST", path, 200 if r.returncode == 0 else 500,
+                            f"w={width} c={colors}")
+
+                    if r.returncode != 0:
+                        self.send_json({'ok': False, 'error': r.stderr.strip() or 'pixelreduce failed'}, status=500)
+                        return
+
+                    with open(out_path, 'rb') as f:
+                        out_bytes = f.read()
+
+                    out_b64 = base64.b64encode(out_bytes).decode()
+                    self.send_json({'ok': True, 'image': out_b64})
+
+                finally:
+                    for p in (in_path, out_path):
+                        if os.path.exists(p):
+                            os.remove(p)
+
+            except Exception as e:
+                self.send_json({'ok': False, 'error': str(e)}, status=500)
+                log_req("POST", path, 500, str(e))
+
         else:
             self.send_response(404)
             self.end_headers()
@@ -333,6 +388,7 @@ class PixelServer(ThreadingHTTPServer):
 if __name__ == '__main__':
     port = 8787
     os.makedirs(GENERATED_DIR, exist_ok=True)
+    os.makedirs(REDUCER_TMP, exist_ok=True)
 
     server = PixelServer(('', port), Handler)
 

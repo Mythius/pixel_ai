@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixel Reducer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── NAV ── */
+    #nav {
+      display: flex;
+      align-items: center;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+      padding: 0 16px;
+      height: 46px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      padding: 0 14px;
+      font-size: 13px;
+      color: #888;
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s;
+    }
+
+    .nav-link:hover { color: #ccc; }
+    .nav-link.active { color: #fff; border-bottom-color: #a78bfa; }
+
+    #nav-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      margin-left: auto;
+    }
+
+    /* ── LAYOUT ── */
+    #content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* ── DROP ZONE / IMAGE PANELS ── */
+    #panels {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: #222;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .panel {
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .panel-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #555;
+      padding: 8px 14px 6px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-label span { color: #444; font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; }
+
+    .panel-img-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 12px;
+    }
+
+    .panel-img-wrap img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    /* ── DROP ZONE ── */
+    #drop-zone {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      border: 2px dashed #2a2a2a;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    #drop-zone.drag-over {
+      border-color: #a78bfa;
+      background: #1a1433;
+    }
+
+    #drop-zone.has-image { display: none; }
+
+    #drop-icon { font-size: 36px; opacity: 0.25; }
+    #drop-text { font-size: 13px; color: #555; text-align: center; line-height: 1.6; }
+    #drop-text strong { color: #888; display: block; margin-bottom: 2px; }
+
+    #file-input { display: none; }
+
+    /* ── RESULT PLACEHOLDER ── */
+    #result-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #333;
+      font-size: 13px;
+    }
+
+    #result-placeholder.hidden { display: none; }
+
+    /* ── PROCESSING OVERLAY ── */
+    #processing-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(17,17,17,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #888;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+    }
+
+    #processing-overlay.visible { opacity: 1; pointer-events: auto; }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #333;
+      border-top-color: #a78bfa;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── CONTROLS ── */
+    #controls {
+      background: #161616;
+      border-top: 1px solid #222;
+      padding: 14px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .ctrl-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 180px;
+    }
+
+    .ctrl-group.grow { flex: 1; }
+
+    .ctrl-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #666;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ctrl-label .val {
+      color: #aaa;
+      font-size: 12px;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 600;
+      margin-left: auto;
+    }
+
+    input[type=range] {
+      width: 100%;
+      accent-color: #a78bfa;
+      height: 4px;
+      cursor: pointer;
+    }
+
+    input[type=range]:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    /* Toggle switch */
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #888;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle {
+      width: 32px;
+      height: 18px;
+      background: #2a2a2a;
+      border-radius: 9px;
+      position: relative;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 12px;
+      height: 12px;
+      background: #666;
+      border-radius: 50%;
+      transition: left 0.2s, background 0.2s;
+    }
+
+    .toggle.on { background: #4c1d95; }
+    .toggle.on::after { left: 17px; background: #a78bfa; }
+
+    /* Divider */
+    .ctrl-divider { width: 1px; background: #2a2a2a; align-self: stretch; }
+
+    /* Buttons */
+    #btn-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 7px;
+      font-size: 13px;
+      cursor: pointer;
+      border: none;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: #4c1d95;
+      color: #ddd6fe;
+    }
+
+    .btn-primary:hover:not(:disabled) { background: #5b21b6; }
+    .btn-primary:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-ghost {
+      background: #222;
+      color: #888;
+      border: 1px solid #333;
+    }
+
+    .btn-ghost:hover:not(:disabled) { background: #2a2a2a; color: #ccc; }
+    .btn-ghost:disabled { opacity: 0.3; cursor: default; }
+
+    /* ── ERROR ── */
+    #error-bar {
+      background: #3b0a0a;
+      border-top: 1px solid #7f1d1d;
+      color: #fca5a5;
+      font-size: 12px;
+      padding: 7px 20px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    #error-bar.visible { display: flex; }
+    #error-close { cursor: pointer; margin-left: auto; color: #f87171; font-size: 16px; line-height: 1; }
+  </style>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="nav-link" href="/">Labeler</a>
+  <a class="nav-link" href="/generator">Generator</a>
+  <a class="nav-link active" href="/reducer">Reducer</a>
+  <span id="nav-title">Pixel Art AI</span>
+</nav>
+
+<div id="content">
+  <div id="panels">
+
+    <!-- LEFT: original -->
+    <div class="panel" id="panel-orig">
+      <div class="panel-label">
+        Original
+        <span id="orig-dims"></span>
+      </div>
+      <div class="panel-img-wrap">
+        <img id="orig-img" src="" alt="" style="display:none">
+      </div>
+
+      <div id="drop-zone">
+        <div id="drop-icon">🖼</div>
+        <div id="drop-text">
+          <strong>Drop an image here</strong>
+          Click to browse · Paste with Ctrl+V
+        </div>
+        <input type="file" id="file-input" accept="image/*">
+      </div>
+    </div>
+
+    <!-- RIGHT: result -->
+    <div class="panel" id="panel-result">
+      <div class="panel-label">
+        Reduced
+        <span id="result-dims"></span>
+      </div>
+      <div class="panel-img-wrap">
+        <img id="result-img" src="" alt="" style="display:none">
+      </div>
+      <div id="result-placeholder">
+        <span style="font-size:28px;opacity:.15">✦</span>
+        Load an image to see the result
+      </div>
+      <div id="processing-overlay">
+        <div class="spinner"></div>
+        Processing…
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CONTROLS -->
+  <div id="controls">
+
+    <!-- Width -->
+    <div class="ctrl-group grow">
+      <div class="ctrl-label">
+        Pixel Width
+        <span class="val" id="width-val">32 px wide</span>
+      </div>
+      <input type="range" id="width-slider" min="4" max="256" step="1" value="32">
+    </div>
+
+    <div class="ctrl-divider"></div>
+
+    <!-- Auto-detect toggle -->
+    <div class="ctrl-group">
+      <div class="ctrl-label">Mode</div>
+      <label class="toggle-wrap" id="auto-toggle-wrap">
+        <div class="toggle" id="auto-toggle"></div>
+        Auto-detect pixel size
+      </label>
+    </div>
+
+    <div class="ctrl-divider"></div>
+
+    <!-- Colors -->
+    <div class="ctrl-group grow">
+      <div class="ctrl-label">
+        Color Palette
+        <span class="val" id="colors-val">12 colors</span>
+      </div>
+      <input type="range" id="colors-slider" min="2" max="64" step="1" value="12">
+    </div>
+
+    <div class="ctrl-divider"></div>
+
+    <!-- No color limit toggle -->
+    <div class="ctrl-group">
+      <div class="ctrl-label">Quantize</div>
+      <label class="toggle-wrap" id="colors-toggle-wrap">
+        <div class="toggle on" id="colors-toggle"></div>
+        Limit colors
+      </label>
+    </div>
+
+    <div class="ctrl-divider"></div>
+
+    <!-- Actions -->
+    <div class="ctrl-group">
+      <div class="ctrl-label">Actions</div>
+      <div id="btn-row">
+        <button class="btn btn-primary" id="btn-download" disabled>↓ Download</button>
+        <button class="btn btn-ghost" id="btn-clear" disabled>Clear</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="error-bar">
+    <span id="error-text"></span>
+    <span id="error-close">✕</span>
+  </div>
+</div>
+
+<script>
+  // ── State ─────────────────────────────────────────────────────────────────
+  let originalB64     = null;   // base64 PNG of the uploaded image
+  let resultB64       = null;   // base64 PNG of the processed result
+  let autoDetect      = false;
+  let limitColors     = true;
+  let debounceTimer   = null;
+  let currentCtrl     = null;   // AbortController for in-flight request
+
+  // ── Elements ──────────────────────────────────────────────────────────────
+  const dropZone        = document.getElementById('drop-zone');
+  const fileInput       = document.getElementById('file-input');
+  const origImg         = document.getElementById('orig-img');
+  const origDims        = document.getElementById('orig-dims');
+  const resultImg       = document.getElementById('result-img');
+  const resultDims      = document.getElementById('result-dims');
+  const resultPlaceholder = document.getElementById('result-placeholder');
+  const processingOverlay = document.getElementById('processing-overlay');
+  const widthSlider     = document.getElementById('width-slider');
+  const widthVal        = document.getElementById('width-val');
+  const autoToggle      = document.getElementById('auto-toggle');
+  const colorsSlider    = document.getElementById('colors-slider');
+  const colorsVal       = document.getElementById('colors-val');
+  const colorsToggle    = document.getElementById('colors-toggle');
+  const btnDownload     = document.getElementById('btn-download');
+  const btnClear        = document.getElementById('btn-clear');
+  const errorBar        = document.getElementById('error-bar');
+  const errorText       = document.getElementById('error-text');
+
+  // ── Load image ────────────────────────────────────────────────────────────
+  function loadImageFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e => loadImageSrc(e.target.result);
+    reader.readAsDataURL(file);
+  }
+
+  function loadImageSrc(src) {
+    const probe = new Image();
+    probe.onload = () => {
+      // Draw to canvas to normalise to PNG
+      const canvas = document.createElement('canvas');
+      canvas.width  = probe.naturalWidth;
+      canvas.height = probe.naturalHeight;
+      canvas.getContext('2d').drawImage(probe, 0, 0);
+      originalB64 = canvas.toDataURL('image/png').split(',')[1];
+
+      origImg.src = 'data:image/png;base64,' + originalB64;
+      origImg.style.display = '';
+      origDims.textContent = `${probe.naturalWidth} × ${probe.naturalHeight}`;
+      dropZone.classList.add('has-image');
+      btnClear.disabled = false;
+      hideError();
+      scheduleProcess();
+    };
+    probe.src = src;
+  }
+
+  // ── Process ───────────────────────────────────────────────────────────────
+  function scheduleProcess(delay = 300) {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(runProcess, delay);
+  }
+
+  async function runProcess() {
+    if (!originalB64) return;
+
+    // Cancel any in-flight request
+    if (currentCtrl) currentCtrl.abort();
+    const ctrl = new AbortController();
+    currentCtrl = ctrl;
+
+    processingOverlay.classList.add('visible');
+    hideError();
+
+    const payload = {
+      image:  originalB64,
+      width:  autoDetect  ? null : parseInt(widthSlider.value),
+      colors: limitColors ? parseInt(colorsSlider.value) : null,
+    };
+
+    try {
+      const res = await fetch('/api/reduce', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+        signal:  ctrl.signal,
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) throw new Error(data.error || 'Processing failed');
+
+      resultB64 = data.image;
+      resultImg.src = 'data:image/png;base64,' + resultB64;
+      resultImg.style.display = '';
+      resultPlaceholder.classList.add('hidden');
+      btnDownload.disabled = false;
+
+      // Measure output dimensions
+      const probe = new Image();
+      probe.onload = () => { resultDims.textContent = `${probe.naturalWidth} × ${probe.naturalHeight}`; };
+      probe.src = resultImg.src;
+
+    } catch (err) {
+      if (err.name === 'AbortError') return;   // superseded by newer request
+      showError(err.message);
+    } finally {
+      if (currentCtrl === ctrl) currentCtrl = null;
+      processingOverlay.classList.remove('visible');
+    }
+  }
+
+  // ── Toggles ───────────────────────────────────────────────────────────────
+  autoToggle.addEventListener('click', () => {
+    autoDetect = !autoDetect;
+    autoToggle.classList.toggle('on', autoDetect);
+    widthSlider.disabled = autoDetect;
+    widthVal.textContent = autoDetect ? 'auto' : widthSlider.value + ' px wide';
+    scheduleProcess(0);
+  });
+
+  colorsToggle.addEventListener('click', () => {
+    limitColors = !limitColors;
+    colorsToggle.classList.toggle('on', limitColors);
+    colorsSlider.disabled = !limitColors;
+    colorsVal.textContent = limitColors ? colorsSlider.value + ' colors' : 'unlimited';
+    scheduleProcess(0);
+  });
+
+  // ── Sliders ───────────────────────────────────────────────────────────────
+  widthSlider.addEventListener('input', () => {
+    widthVal.textContent = widthSlider.value + ' px wide';
+    scheduleProcess();
+  });
+
+  colorsSlider.addEventListener('input', () => {
+    colorsVal.textContent = colorsSlider.value + ' colors';
+    scheduleProcess();
+  });
+
+  // ── Upload: click ─────────────────────────────────────────────────────────
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => loadImageFile(fileInput.files[0]));
+
+  // ── Upload: drag & drop ───────────────────────────────────────────────────
+  document.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  document.addEventListener('dragleave', e => { if (!e.relatedTarget) dropZone.classList.remove('drag-over'); });
+  document.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) loadImageFile(file);
+  });
+
+  // ── Upload: paste ─────────────────────────────────────────────────────────
+  document.addEventListener('paste', e => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        loadImageFile(item.getAsFile());
+        break;
+      }
+    }
+  });
+
+  // ── Download ──────────────────────────────────────────────────────────────
+  btnDownload.addEventListener('click', () => {
+    if (!resultB64) return;
+    const a = document.createElement('a');
+    a.href = 'data:image/png;base64,' + resultB64;
+    a.download = 'reduced.png';
+    a.click();
+  });
+
+  // ── Clear ─────────────────────────────────────────────────────────────────
+  btnClear.addEventListener('click', () => {
+    originalB64 = null;
+    resultB64   = null;
+    origImg.src = '';
+    origImg.style.display = 'none';
+    origDims.textContent = '';
+    resultImg.src = '';
+    resultImg.style.display = 'none';
+    resultDims.textContent = '';
+    resultPlaceholder.classList.remove('hidden');
+    dropZone.classList.remove('has-image');
+    btnDownload.disabled = true;
+    btnClear.disabled = true;
+    fileInput.value = '';
+    hideError();
+    if (currentCtrl) { currentCtrl.abort(); currentCtrl = null; }
+  });
+
+  // ── Error ─────────────────────────────────────────────────────────────────
+  function showError(msg) {
+    errorText.textContent = msg;
+    errorBar.classList.add('visible');
+  }
+
+  function hideError() { errorBar.classList.remove('visible'); }
+
+  document.getElementById('error-close').addEventListener('click', hideError);
+</script>
+</body>
+</html>
