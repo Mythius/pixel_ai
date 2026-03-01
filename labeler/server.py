@@ -28,8 +28,13 @@ REDUCER_HTML     = os.path.join(BASE_DIR, 'reducer.html')
 REDUCER_TMP      = os.path.join(BASE_DIR, '..', 'tmp_reduce')
 
 # Use the venv Python (has cv2/numpy/PIL) if available, else fall back to this process
-_venv_python = os.path.join(BASE_DIR, '..', 'venv', 'bin', 'python')
-PYTHON = _venv_python if os.path.isfile(_venv_python) else sys.executable
+_venv_python_local = os.path.join(BASE_DIR, 'venv', 'bin', 'python')
+_venv_python_root  = os.path.join(BASE_DIR, '..', 'venv', 'bin', 'python')
+PYTHON = (
+    _venv_python_local if os.path.isfile(_venv_python_local) else
+    _venv_python_root  if os.path.isfile(_venv_python_root)  else
+    sys.executable
+)
 
 # ── Job tracking (thread-safe) ─────────────────────────────────────────────
 jobs: dict = {}      # job_id → {status, images, error, prompt, started_at}
