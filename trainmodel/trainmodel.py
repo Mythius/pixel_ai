@@ -405,16 +405,22 @@ def generate(args):
         print(f"Missing dependency: {e}")
         return
 
-    lora_path = LORA_OUTPUT_DIR / "final"
+    if args.model:
+        lora_path = Path(args.model)
+    else:
+        lora_path = LORA_OUTPUT_DIR / "final"
+        if not lora_path.exists():
+            checkpoints = sorted(LORA_OUTPUT_DIR.glob("checkpoint-*"))
+            if checkpoints:
+                lora_path = checkpoints[-1]
+                print(f"Using latest checkpoint: {lora_path}")
+            else:
+                print("No trained model found. Use --model /path/to/model or run: python trainmodel.py train")
+                return
+
     if not lora_path.exists():
-        # Check for latest checkpoint
-        checkpoints = sorted(LORA_OUTPUT_DIR.glob("checkpoint-*"))
-        if checkpoints:
-            lora_path = checkpoints[-1]
-            print(f"Using latest checkpoint: {lora_path}")
-        else:
-            print(f"No trained model found. Run: python trainmodel.py train")
-            return
+        print(f"Model path not found: {lora_path}")
+        return
 
     # Device setup
     if torch.cuda.is_available():
@@ -548,6 +554,10 @@ Examples:
     sub_gen.add_argument(
         "--output-dir", type=str, default=str(SCRIPT_DIR / "output"), dest="output_dir",
         help="Directory to save generated images",
+    )
+    sub_gen.add_argument(
+        "--model", type=str, default=None,
+        help="Path to LoRA model folder (default: trainmodel/lora_output/final)",
     )
 
     args = parser.parse_args()
