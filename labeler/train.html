@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Train Model</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── NAV ── */
+    #nav {
+      display: flex;
+      align-items: center;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+      padding: 0 16px;
+      height: 46px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      padding: 0 14px;
+      font-size: 13px;
+      color: #888;
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s;
+    }
+
+    .nav-link:hover { color: #ccc; }
+    .nav-link.active { color: #fff; border-bottom-color: #f59e0b; }
+
+    #nav-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      margin-left: auto;
+    }
+
+    /* ── IFRAME ── */
+    #frame-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #colab-frame {
+      flex: 1;
+      width: 100%;
+      border: none;
+    }
+
+    /* Shown if browser blocks the iframe */
+    #blocked-msg {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: #666;
+      text-align: center;
+      padding: 40px;
+    }
+
+    #blocked-msg .icon { font-size: 48px; opacity: 0.3; }
+    #blocked-msg p { font-size: 14px; line-height: 1.6; max-width: 420px; }
+    #blocked-msg a {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 10px 24px;
+      background: #f59e0b;
+      color: #111;
+      font-weight: 600;
+      font-size: 14px;
+      border-radius: 8px;
+      text-decoration: none;
+    }
+    #blocked-msg a:hover { background: #d97706; }
+  </style>
+</head>
+<body>
+
+<nav id="nav">
+  <a class="nav-link" href="/">Labeler</a>
+  <a class="nav-link" href="/generator">Generator</a>
+  <a class="nav-link" href="/reducer">Reducer</a>
+  <a class="nav-link active" href="/train">Train</a>
+  <span id="nav-title">Pixel Art AI</span>
+</nav>
+
+<div id="frame-wrap">
+  <iframe
+    id="colab-frame"
+    src="https://colab.research.google.com/drive/1tcwfVJUeW3ZX-epelIX0p2oaX9fCeK8W"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+  ></iframe>
+
+  <!-- Fallback shown via JS if the iframe errors or stays blank -->
+  <div id="blocked-msg">
+    <div class="icon">🔒</div>
+    <p>Google Colab can't be embedded in an iframe due to browser security restrictions.<br>Open it directly instead:</p>
+    <a href="https://colab.research.google.com/drive/1tcwfVJUeW3ZX-epelIX0p2oaX9fCeK8W" target="_blank">
+      Open in Colab ↗
+    </a>
+  </div>
+</div>
+
+<script>
+  const frame = document.getElementById('colab-frame');
+  const blocked = document.getElementById('blocked-msg');
+
+  // Detect if the iframe was blocked (load fires but content is empty due to X-Frame-Options)
+  frame.addEventListener('load', () => {
+    try {
+      // Accessing contentDocument throws if cross-origin blocked
+      const doc = frame.contentDocument;
+      if (!doc || doc.URL === 'about:blank') throw new Error('blocked');
+    } catch {
+      frame.style.display = 'none';
+      blocked.style.display = 'flex';
+    }
+  });
+
+  frame.addEventListener('error', () => {
+    frame.style.display = 'none';
+    blocked.style.display = 'flex';
+  });
+</script>
+</body>
+</html>

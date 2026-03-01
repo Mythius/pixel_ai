@@ -25,6 +25,7 @@ GENERATE_SH      = os.path.join(BASE_DIR, '..', 'generateImage.sh')
 OUTPUT_DIR       = os.path.join(BASE_DIR, '..', 'trainmodel', 'output')
 PIXEL_REDUCE     = os.path.join(BASE_DIR, '..', 'pixel_reducer', 'pixelreduce.py')
 REDUCER_HTML     = os.path.join(BASE_DIR, 'reducer.html')
+TRAIN_HTML       = os.path.join(BASE_DIR, 'train.html')
 REDUCER_TMP      = os.path.join(BASE_DIR, '..', 'tmp_reduce')
 
 # Use the venv Python (has cv2/numpy/PIL) if available, else fall back to this process
@@ -230,6 +231,10 @@ class Handler(BaseHTTPRequestHandler):
 
         elif path == '/reducer':
             self.send_html(REDUCER_HTML)
+            log_req("GET", path, 200)
+
+        elif path == '/train':
+            self.send_html(TRAIN_HTML)
             log_req("GET", path, 200)
 
         elif path == '/api/images':
