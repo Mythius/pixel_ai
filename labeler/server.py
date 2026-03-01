@@ -374,6 +374,26 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({'ok': False, 'error': str(e)}, status=500)
                 log_req("POST", path, 500, str(e))
 
+        elif path == '/api/save-to-training':
+            try:
+                data = json.loads(body)
+                img_b64 = data.get('image', '')
+                if ',' in img_b64:
+                    img_b64 = img_b64.split(',', 1)[1]
+                img_bytes = base64.b64decode(img_b64)
+
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                fname = f"reduced_{ts}_{uuid.uuid4().hex[:6]}.png"
+                dest = os.path.join(TRAINING_DATA, fname)
+                with open(dest, 'wb') as f:
+                    f.write(img_bytes)
+
+                self.send_json({'ok': True, 'filename': fname})
+                log_req("POST", path, 200, fname)
+            except Exception as e:
+                self.send_json({'ok': False, 'error': str(e)}, status=500)
+                log_req("POST", path, 500, str(e))
+
         else:
             self.send_response(404)
             self.end_headers()

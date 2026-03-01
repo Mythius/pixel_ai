@@ -315,6 +315,15 @@
     .btn-ghost:hover:not(:disabled) { background: #2a2a2a; color: #ccc; }
     .btn-ghost:disabled { opacity: 0.3; cursor: default; }
 
+    .btn-save {
+      background: #14532d;
+      color: #86efac;
+      border: 1px solid #166534;
+    }
+
+    .btn-save:hover:not(:disabled) { background: #166534; }
+    .btn-save:disabled { opacity: 0.3; cursor: default; }
+
     /* ── ERROR ── */
     #error-bar {
       background: #3b0a0a;
@@ -437,6 +446,7 @@
       <div class="ctrl-label">Actions</div>
       <div id="btn-row">
         <button class="btn btn-primary" id="btn-download" disabled>↓ Download</button>
+        <button class="btn btn-save" id="btn-save" disabled>+ Training Data</button>
         <button class="btn btn-ghost" id="btn-clear" disabled>Clear</button>
       </div>
     </div>
@@ -474,6 +484,7 @@
   const colorsVal       = document.getElementById('colors-val');
   const colorsToggle    = document.getElementById('colors-toggle');
   const btnDownload     = document.getElementById('btn-download');
+  const btnSave         = document.getElementById('btn-save');
   const btnClear        = document.getElementById('btn-clear');
   const errorBar        = document.getElementById('error-bar');
   const errorText       = document.getElementById('error-text');
@@ -555,6 +566,7 @@
       resultImg.style.display = '';
       resultPlaceholder.classList.add('hidden');
       btnDownload.disabled = false;
+      btnSave.disabled = false;
 
       // Measure output dimensions
       const probe = new Image();
@@ -633,6 +645,31 @@
     a.click();
   });
 
+  // ── Save to training data ─────────────────────────────────────────────────
+  btnSave.addEventListener('click', async () => {
+    if (!resultB64) return;
+    btnSave.disabled = true;
+    btnSave.textContent = 'Saving…';
+    try {
+      const res = await fetch('/api/save-to-training', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: resultB64 }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Save failed');
+      btnSave.textContent = '✓ Saved!';
+      setTimeout(() => {
+        btnSave.textContent = '+ Training Data';
+        btnSave.disabled = false;
+      }, 2000);
+    } catch (err) {
+      showError('Save failed: ' + err.message);
+      btnSave.textContent = '+ Training Data';
+      btnSave.disabled = false;
+    }
+  });
+
   // ── Clear ─────────────────────────────────────────────────────────────────
   btnClear.addEventListener('click', () => {
     originalB64 = null;
@@ -646,6 +683,7 @@
     resultPlaceholder.classList.remove('hidden');
     dropZone.classList.remove('has-image');
     btnDownload.disabled = true;
+    btnSave.disabled = true;
     btnClear.disabled = true;
     fileInput.value = '';
     hideError();
