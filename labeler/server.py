@@ -24,6 +24,10 @@ GENERATE_SH      = os.path.join(BASE_DIR, '..', 'generateImage.sh')
 OUTPUT_DIR       = os.path.join(BASE_DIR, '..', 'trainmodel', 'output')
 PIXEL_REDUCE     = os.path.join(BASE_DIR, '..', 'pixel_reducer', 'pixelreduce.py')
 
+# Use the venv Python (has cv2/numpy/PIL) if available, else fall back to this process
+_venv_python = os.path.join(BASE_DIR, '..', 'venv', 'bin', 'python')
+PYTHON = _venv_python if os.path.isfile(_venv_python) else sys.executable
+
 # ── Job tracking (thread-safe) ─────────────────────────────────────────────
 jobs: dict = {}      # job_id → {status, images, error, prompt, started_at}
 jobs_lock = threading.Lock()
@@ -113,7 +117,7 @@ def run_generate_thread(job_id: str, user_prompt: str, num: int):
         # Run pixel reducer on each image: downscale to true 32×32, limit to 12 colors
         for src_path, idx in candidates:
             reduce = subprocess.run(
-                [sys.executable, PIXEL_REDUCE, src_path, src_path, '--width', '32', '--colors', '12'],
+                [PYTHON, PIXEL_REDUCE, src_path, src_path, '--width', '32', '--colors', '12'],
                 capture_output=True, text=True, timeout=60,
             )
             if reduce.returncode == 0:
@@ -337,6 +341,7 @@ if __name__ == '__main__':
     log(f"  Generator: http://localhost:{port}/generator")
     log(f"  Images:    {os.path.abspath(TRAINING_DATA)}")
     log(f"  Generated: {os.path.abspath(GENERATED_DIR)}")
+    log(f"  Python:    {PYTHON}")
     log("Press Ctrl+C to stop")
     print()
 
